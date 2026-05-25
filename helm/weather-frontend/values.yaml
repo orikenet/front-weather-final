@@ -1,0 +1,20 @@
+replicaCount: 1
+
+image:
+  repository: docker.io/orik45/weather-frontend
+  tag: latest
+  pullPolicy: IfNotPresent
+  containerPort: 8000
+
+nameOverride: ""
+fullnameOverride: "weather-frontend"
+
+service:
+  type: ClusterIP
+  port: 8000
+
+appConfig:
+  locationsApi: "http://localhost:5001/countries"
+  weatherApi: "http://localhost:5000/weather"
+
+resources: {}

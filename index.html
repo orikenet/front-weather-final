@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkyCast | Modern Weather</title>
+    <script src="/config.js"></script>
+    <style>
+        :root {
+            --primary-bg: #0f172a;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --accent: #38bdf8;
+            --text-main: #f8fafc;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 2.5rem;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        h1 { font-weight: 300; margin-bottom: 1.5rem; letter-spacing: 1px; }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            outline: none;
+            margin-bottom: 2rem;
+        }
+
+        .weather-card {
+            display: none; /* Hidden until data is fetched */
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        .temp {
+            font-size: 4rem;
+            font-weight: 700;
+            margin: 0.5rem 0;
+            color: var(--accent);
+        }
+
+        .desc {
+            text-transform: capitalize;
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 1.5rem;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 1.5rem;
+        }
+
+        .stat-item span { display: block; font-size: 0.8rem; opacity: 0.6; }
+        .stat-item b { font-size: 1.1rem; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loader {
+            display: none;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid var(--accent);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>SkyCast</h1>
+    
+    <select id="citySelect" onchange="fetchWeather()">
+        <option value="" disabled selected>Loading locations...</option>
+    </select>
+
+    <div id="loader" class="loader"></div>
+
+    <div id="weatherDisplay" class="weather-card">
+        <div id="cityName" style="font-size: 1.5rem; font-weight: 600;"></div>
+        <div class="temp"><span id="tempValue">--</span>°C</div>
+        <div class="desc" id="weatherDesc">Cloudy</div>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span>Humidity</span>
+                <b id="humidityValue">--%</b>
+            </div>
+            <div class="stat-item">
+                <span>Wind Speed</span>
+                <b id="windValue">-- km/h</b>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const APP_CONFIG = window.__APP_CONFIG__ || {};
+    const LOCATIONS_API = APP_CONFIG.locationsApi || 'http://localhost:5001/countries';
+    const WEATHER_API = APP_CONFIG.weatherApi || 'http://localhost:5000/weather';
+
+    async function loadLocations() {
+        const select = document.getElementById('citySelect');
+
+        try {
+            const response = await fetch(LOCATIONS_API);
+            if (!response.ok) throw new Error('Failed to load locations');
+            const payload = await response.json();
+            const locations = Array.isArray(payload) ? payload : payload.countries;
+
+            if (!Array.isArray(locations) || locations.length === 0) {
+                throw new Error('No locations available');
+            }
+
+            select.innerHTML = '<option value="" disabled selected>Select a city...</option>';
+            locations.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = typeof item === 'string' ? item : (item.value || item.key || item.name);
+                option.textContent = typeof item === 'string' ? item : (item.name || item.label || item.value);
+                if (!option.value) return;
+                select.appendChild(option);
+            });
+        } catch (error) {
+            console.error('Error loading locations:', error);
+            select.innerHTML = '<option value="" disabled selected>Could not load locations</option>';
+            select.disabled = true;
+        }
+    }
+
+    async function fetchWeather() {
+        const cityKey = document.getElementById('citySelect').value;
+        const display = document.getElementById('weatherDisplay');
+        const loader = document.getElementById('loader');
+
+        if (!cityKey) return;
+
+        loader.style.display = 'block';
+        display.style.display = 'none';
+
+        try {
+            const response = await fetch(`${WEATHER_API}/${encodeURIComponent(cityKey)}`);
+            
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const data = await response.json();
+
+            // MAPPING TO YOUR JSON EXAMPLE:
+            // Temperature is in data.main.temp
+            document.getElementById('tempValue').textContent = Math.round(data.main.temp);
+            
+            // Description is the first element of the weather array: data.weather[0].description
+            document.getElementById('weatherDesc').textContent = data.weather[0].description;
+            
+            // Humidity is in data.main.humidity
+            document.getElementById('humidityValue').textContent = `${data.main.humidity}%`;
+            
+            // Wind Speed is in data.wind.speed
+            document.getElementById('windValue').textContent = `${data.wind.speed} m/s`;
+
+            // Display the city name from the JSON itself for accuracy
+            document.getElementById('cityName').textContent = data.name;
+
+            loader.style.display = 'none';
+            display.style.display = 'block';
+
+        } catch (error) {
+            console.error('Error fetching weather:', error);
+            loader.style.display = 'none';
+            alert('Error: Make sure your Flask server is running on localhost:5000 and CORS is enabled.');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadLocations);
+</script>
+
+</body>
+</html>

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "weather-frontend.fullname" . }}-config
+data:
+  config.js: |
+    window.__APP_CONFIG__ = {
+      locationsApi: "{{ .Values.appConfig.locationsApi }}",
+      weatherApi: "{{ .Values.appConfig.weatherApi }}"
+    };

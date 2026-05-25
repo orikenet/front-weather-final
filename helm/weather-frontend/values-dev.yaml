@@ -1,0 +1,15 @@
+replicaCount: 1
+
+image:
+  repository: docker.io/orik45/weather-frontend
+  tag: dev
+  pullPolicy: IfNotPresent
+  containerPort: 8000
+
+service:
+  type: NodePort
+  port: 8000
+
+appConfig:
+  locationsApi: "http://countries-api:5001/countries"
+  weatherApi: "http://weather-backend-server:5000/weather"
